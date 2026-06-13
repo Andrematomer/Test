@@ -1,12 +1,12 @@
 {
   "name": "PWA Permission Hell Test",
   "short_name": "Permission Test",
-  "start_url": "./index.html",
+  "start_url": "/test/index.html",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#121212",
   "orientation": "portrait",
-  "scope": "./",
+  "scope": "/test/",
   "icons": [
     {
       "src": "icon.svg",
