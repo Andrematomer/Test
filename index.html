@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PWA Permission Hell</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.svg">
+</head>
+<body>
+
+  <h1>⚠️ PWA Permission Hell</h1>
+  <p id="net-status">Connection: checking...</p>
+  <p class="notice">This page tracks system integration limits in iOS vs Android.</p>
+
+  <div class="grid">
+
+    <!-- Persistence & Offline Save -->
+    <div class="card">
+      <h2>1. Offline State Save</h2>
+      <p>Type anything to test local storage offline persistence:</p>
+      <input type="text" id="save-input" style="width: 90%; background: #2a2a2a; color: #fff; border: 1px solid #555; padding: 5px;" placeholder="Type here...">
+      <p id="save-output" style="color: #ffaa00; margin-top: 10px;">Last saved value: None</p>
+    </div>
+
+    <!-- Geolocation -->
+    <div class="card">
+      <h2>2. Geolocation (Continuous GPS)</h2>
+      <p>Permission Status: <span id="gps-status" class="status unsupported">Unknown</span></p>
+      <pre id="gps-data">No data acquired.</pre>
+      <button id="btn-gps">Start Continuous Tracking</button>
+    </div>
+
+    <!-- Camera Feed -->
+    <div class="card">
+      <h2>3. Camera Access</h2>
+      <p>Status: <span id="cam-status" class="status unsupported">Not Activated</span></p>
+      <video id="video-element" autoplay playsinline muted></video>
+      <button id="btn-cam">Request Camera</button>
+    </div>
+
+    <!-- Audio / Microphone level -->
+    <div class="card">
+      <h2>4. Mic Level (AudioContext)</h2>
+      <p>Status: <span id="mic-status" class="status unsupported">Not Activated</span></p>
+      <canvas id="mic-canvas"></canvas>
+      <button id="btn-mic">Request Microphone</button>
+    </div>
+
+    <!-- Motion Sensors (Gyroscope & Accel) -->
+    <div class="card">
+      <h2>5. Device Orientation & Motion</h2>
+      <p>Status: <span id="motion-status" class="status unsupported">Unknown</span></p>
+      <pre id="motion-data">No movement detected.</pre>
+      <button id="btn-motion">Request Motion Permission</button>
+    </div>
+
+    <!-- Contacts Picker (Android Only API) -->
+    <div class="card">
+      <h2>6. Contacts Picker API</h2>
+      <p>Support: <span id="contacts-status" class="status unsupported">Checking...</span></p>
+      <pre id="contacts-data">No contacts selected.</pre>
+      <button id="btn-contacts">Pick Contacts</button>
+    </div>
+
+    <!-- Web Push Notifications -->
+    <div class="card">
+      <h2>7. Push Notifications</h2>
+      <p>Status: <span id="notify-status" class="status unsupported">Checking...</span></p>
+      <button id="btn-notify">Request Notification Permission</button>
+    </div>
+
+    <!-- Aggressive Permissions (Storage & Wake Lock) -->
+    <div class="card">
+      <h2>8. Aggressive Permissions</h2>
+      <p>Storage Persistence: <span id="persist-status" class="status unsupported">Unknown</span></p>
+      <button id="btn-persist">Request Persistent Storage</button>
+      <p style="margin-top: 15px;">Screen Wake Lock: <span id="wake-status" class="status unsupported">Inactive</span></p>
+      <button id="btn-wake">Request Wake Lock (Keep Screen On)</button>
+    </div>
+
+  </div>
+
+  <!-- Consolidated Debug Logs Section -->
+  <div class="card" style="margin-top: 20px; border-color: #ff5555;">
+    <h2 style="color: #ff5555; border-color: #ff5555;">📋 System Debug Logs</h2>
+    <p class="notice">All errors, browser metadata, and API checks are logged here. Copy and paste this text directly to debug.</p>
+    <button id="btn-copy-log" style="background: #ff5555; border-color: #ff3333; color: #fff; font-weight: bold;">Copy Log to Clipboard</button>
+    <pre id="debug-log" style="max-height: 250px; background: #000; color: #55ff55;">[System Logs Initiated]</pre>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
