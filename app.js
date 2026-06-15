@@ -22,47 +22,65 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Voice Parameters
-let gateThreshold = 0.03;       // Mic trigger volume
-let silenceTimeoutValue = 1200; // Time in ms to wait before repeating
-let playbackSpeed = 1.4;        // Cat pitch scale
-let detuneValue = 0;            // Fine pitch tuning (cents)
-let filterFrequency = 3000;     // Lowpass filter frequency
+// Variables Setup
+let gateThreshold = 0.03;       
+let silenceTimeoutValue = 1200; 
+let playbackSpeed = 1.0;        
+let detuneValue = 500;          
+let distortionAmount = 0;       
+let delayTimeMs = 0;            
+let delayFeedback = 0.0;        
+let tremoloRate = 0;            
+let highpassFreq = 0;           
+let lowpassFreq = 8000;         
 
-// Bind Sliders to DOM and Variables
-const slideSpeed = document.getElementById('slide-speed');
-const valSpeed = document.getElementById('val-speed');
-slideSpeed.addEventListener('input', (e) => {
-  playbackSpeed = parseFloat(e.target.value);
-  valSpeed.textContent = playbackSpeed;
+// Auto Pitch Target Variables
+let isAutoPitchEnabled = false;
+let targetPitchHz = 450;
+let lastDetectedUserPitch = null;
+
+// Helper to bind range slider with a manual number input box
+function syncControls(slideId, numId, callback) {
+  const slider = document.getElementById(slideId);
+  const number = document.getElementById(numId);
+  
+  slider.addEventListener('input', (e) => {
+    number.value = e.target.value;
+    callback(parseFloat(e.target.value));
+  });
+  
+  number.addEventListener('input', (e) => {
+    let val = parseFloat(e.target.value);
+    if (!isNaN(val)) {
+      slider.value = val; // Clamp inside range slider UI
+      callback(val);      // Process absolute written value
+    }
+  });
+}
+
+// Setup double-bound configurations
+syncControls('slide-speed', 'num-speed', (val) => playbackSpeed = val);
+syncControls('slide-detune', 'num-detune', (val) => detuneValue = val);
+syncControls('slide-distortion', 'num-distortion', (val) => distortionAmount = val);
+syncControls('slide-delay', 'num-delay', (val) => delayTimeMs = val);
+syncControls('slide-feedback', 'num-feedback', (val) => delayFeedback = val / 100);
+syncControls('slide-tremolo', 'num-tremolo', (val) => tremoloRate = val);
+syncControls('slide-highpass', 'num-highpass', (val) => highpassFreq = val);
+syncControls('slide-lowpass', 'num-lowpass', (val) => lowpassFreq = val);
+syncControls('slide-gate', 'num-gate', (val) => gateThreshold = val);
+syncControls('slide-silence', 'num-silence', (val) => silenceTimeoutValue = val);
+
+// Handle checkbox and targets
+const checkAutoTarget = document.getElementById('check-auto-target');
+const numTargetPitch = document.getElementById('num-target-pitch');
+const pitchLog = document.getElementById('pitch-detector-log');
+
+checkAutoTarget.addEventListener('change', (e) => {
+  isAutoPitchEnabled = e.target.checked;
+  logEvent(`Pitch Auto-Targeting changed to: ${isAutoPitchEnabled}`);
 });
-
-const slideDetune = document.getElementById('slide-detune');
-const valDetune = document.getElementById('val-detune');
-slideDetune.addEventListener('input', (e) => {
-  detuneValue = parseInt(e.target.value);
-  valDetune.textContent = detuneValue;
-});
-
-const slideGate = document.getElementById('slide-gate');
-const valGate = document.getElementById('val-gate');
-slideGate.addEventListener('input', (e) => {
-  gateThreshold = parseFloat(e.target.value);
-  valGate.textContent = gateThreshold;
-});
-
-const slideSilence = document.getElementById('slide-silence');
-const valSilence = document.getElementById('val-silence');
-slideSilence.addEventListener('input', (e) => {
-  silenceTimeoutValue = parseInt(e.target.value);
-  valSilence.textContent = silenceTimeoutValue;
-});
-
-const slideFilter = document.getElementById('slide-filter');
-const valFilter = document.getElementById('val-filter');
-slideFilter.addEventListener('input', (e) => {
-  filterFrequency = parseInt(e.target.value);
-  valFilter.textContent = filterFrequency;
+numTargetPitch.addEventListener('input', (e) => {
+  targetPitchHz = parseFloat(e.target.value) || 450;
 });
 
 // Audio variables
@@ -74,8 +92,8 @@ let audioChunks = [];
 
 // App Loop States
 let isInitialized = false;
-let isSpeaking = false;      // True if USER is actively talking
-let isRepeating = false;     // True if TAN is currently playing back
+let isSpeaking = false;      
+let isRepeating = false;     
 let silenceTimer = null;
 
 const btnActivate = document.getElementById('btn-activate');
@@ -83,17 +101,15 @@ const stateIndicator = document.getElementById('state-indicator');
 const canvas = document.getElementById('volume-canvas');
 const canvasCtx = canvas.getContext('2d');
 
-// 1. Initial activation via secure iOS click-gesture
+// Activation Event
 btnActivate.addEventListener('click', async () => {
   if (isInitialized) return;
   
   logEvent("Initializing audio hardware...");
   try {
-    // Request raw microphone access
     stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
-    // Analyze microphone volume
     const source = audioCtx.createMediaStreamSource(stream);
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 256;
@@ -111,14 +127,12 @@ btnActivate.addEventListener('click', async () => {
   } catch (err) {
     stateIndicator.textContent = "ACTIVATION FAILED";
     stateIndicator.style.color = "#ff5555";
-    logEvent(`Hardware initial failed: ${err.message}`, true);
+    logEvent(`Hardware initialization failed: ${err.message}`, true);
   }
 });
 
-// 2. Setup the MediaRecorder API
 function setupMediaRecorder() {
   mediaRecorder = new MediaRecorder(stream);
-  
   mediaRecorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
       audioChunks.push(event.data);
@@ -136,8 +150,13 @@ function setupMediaRecorder() {
 
     try {
       const arrayBuffer = await audioBlob.arrayBuffer();
-      // Decode raw mic data to Web Audio Buffer
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      
+      // Execute Pitch Detection Algorithm
+      if (isAutoPitchEnabled) {
+        lastDetectedUserPitch = analyzeBufferPitch(audioBuffer);
+      }
+      
       playVoiceWithDSP(audioBuffer);
     } catch (err) {
       logEvent(`Failed to decode voice buffer: ${err.message}`, true);
@@ -146,37 +165,181 @@ function setupMediaRecorder() {
   };
 }
 
-// 3. Playback with Cat DSP processing
+// Time-Domain Autocorrelation Pitch Detector
+function analyzeBufferPitch(audioBuffer) {
+  const data = audioBuffer.getChannelData(0);
+  const sampleRate = audioBuffer.sampleRate;
+  const frameSize = 2048;
+  const pitches = [];
+
+  // Slice buffer and auto-correlate each frame
+  for (let offset = 0; offset < data.length; offset += frameSize) {
+    const frame = data.subarray(offset, offset + frameSize);
+    const pitch = autoCorrelate(frame, sampleRate);
+    
+    // Only accept frequencies within human speech limits (60Hz to 1200Hz)
+    if (pitch > 60 && pitch < 1200) {
+      pitches.push(pitch);
+    }
+  }
+
+  if (pitches.length === 0) {
+    pitchLog.textContent = "Could not detect clear fundamental pitch.";
+    logEvent("Vocal pitch analysis returned no reliable fundamental pitches.");
+    return null;
+  }
+
+  // Sort values to compute the median
+  pitches.sort((a, b) => a - b);
+  const medianPitch = pitches[Math.floor(pitches.length / 2)];
+  
+  pitchLog.textContent = `Last Detected Pitch: ${medianPitch.toFixed(1)} Hz`;
+  logEvent(`Detected User Pitch: ${medianPitch.toFixed(1)} Hz (Median calculated from ${pitches.length} frames).`);
+  return medianPitch;
+}
+
+function autoCorrelate(buffer, sampleRate) {
+  // 1. Root-Mean-Square threshold check (ignore silent slices)
+  let rms = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    rms += buffer[i] * buffer[i];
+  }
+  rms = Math.sqrt(rms / buffer.length);
+  if (rms < 0.015) return -1; 
+
+  // 2. Perform Autocorrelation (Signal match comparison)
+  let r = new Float32Array(buffer.length);
+  for (let i = 0; i < buffer.length; i++) {
+    for (let j = 0; j < buffer.length - i; j++) {
+      r[i] += buffer[j] * buffer[j + i];
+    }
+  }
+
+  // 3. Find the first zero-crossing/local minimum to ignore immediate phase
+  let d = 0;
+  while (d < buffer.length - 1 && r[d] > r[d + 1]) {
+    d++;
+  }
+  
+  // 4. Find the absolute peak after the zero-crossing
+  let maxval = -1;
+  let maxpos = -1;
+  for (let i = d; i < buffer.length; i++) {
+    if (r[i] > maxval) {
+      maxval = r[i];
+      maxpos = i;
+    }
+  }
+
+  if (maxpos !== -1 && maxval > 0) {
+    return sampleRate / maxpos; // Convert wavelength period to Frequency
+  }
+  return -1;
+}
+
+// Playback Processing Chain
 function playVoiceWithDSP(buffer) {
   const source = audioCtx.createBufferSource();
   source.buffer = buffer;
 
-  // Apply cat high-pitch and speed
-  source.playbackRate.value = playbackSpeed;
-  
-  // Apply detuning (fine pitch tuning)
-  if (source.detune) {
-    source.detune.value = detuneValue;
+  // Auto-Pitch Logic calculation
+  if (isAutoPitchEnabled && lastDetectedUserPitch !== null) {
+    // Calculate semitones/cents adjustment required
+    const pitchRatio = targetPitchHz / lastDetectedUserPitch;
+    const computedDetune = 1200 * Math.log2(pitchRatio);
+    
+    source.playbackRate.value = 1.0; // Reset speed back to normal
+    if (source.detune) {
+      source.detune.value = computedDetune;
+    }
+    pitchLog.textContent = `User Pitch: ${lastDetectedUserPitch.toFixed(1)} Hz\nTarget: ${targetPitchHz} Hz\nDetune applied: ${computedDetune.toFixed(0)} cents`;
+    logEvent(`Auto-Normalizer applied: detuning by ${computedDetune.toFixed(0)} cents.`);
+  } else {
+    // Fallback to manual slider values
+    source.playbackRate.value = playbackSpeed;
+    if (source.detune) {
+      source.detune.value = detuneValue;
+    }
   }
 
-  // Filter out harsh highs to mimic toy cat speaker
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = filterFrequency;
+  const highpass = audioCtx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = highpassFreq;
 
-  // Connect the chain: Source -> Filter -> Output
-  source.connect(filter);
-  filter.connect(audioCtx.destination);
+  const lowpass = audioCtx.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.value = lowpassFreq;
+
+  const distortion = audioCtx.createWaveShaper();
+  const dCurve = makeDistortionCurve(distortionAmount);
+  if (dCurve) {
+    distortion.curve = dCurve;
+    distortion.oversample = '4x';
+  }
+
+  const delay = audioCtx.createDelay(1.0); 
+  delay.delayTime.value = delayTimeMs / 1000; 
+  
+  const feedback = audioCtx.createGain();
+  feedback.gain.value = delayFeedback;
+
+  delay.connect(feedback);
+  feedback.connect(delay);
+
+  const tremoloGain = audioCtx.createGain();
+  tremoloGain.gain.value = 1.0;
+  let tremoloOsc = null;
+
+  if (tremoloRate > 0) {
+    const tremoloLFO = audioCtx.createOscillator();
+    tremoloLFO.type = 'sine';
+    tremoloLFO.frequency.value = tremoloRate;
+    
+    const lfoGain = audioCtx.createGain();
+    lfoGain.gain.value = 0.5; 
+
+    tremoloLFO.connect(lfoGain);
+    lfoGain.connect(tremoloGain.gain);
+    tremoloLFO.start(0);
+    tremoloOsc = tremoloLFO;
+  }
+
+  source.connect(distortion);
+  distortion.connect(highpass);
+  highpass.connect(lowpass);
+  lowpass.connect(tremoloGain);
+  tremoloGain.connect(audioCtx.destination);
+
+  if (delayTimeMs > 0) {
+    tremoloGain.connect(delay);
+    delay.connect(audioCtx.destination);
+  }
 
   source.start(0);
-  logEvent(`Tan is speaking. Speed: ${playbackSpeed}x, Detune: ${detuneValue}cents`);
+  logEvent(`Tan is speaking. FX active.`);
 
   source.onended = () => {
+    if (tremoloOsc) {
+      try { tremoloOsc.stop(); } catch(e) {}
+    }
     resetToListening();
   };
 }
 
-// 4. Reset software mute and return to listening mode
+// Setup clean waveshaper curve
+function makeDistortionCurve(amount) {
+  let k = typeof amount === 'number' ? amount : 50;
+  if (k === 0) return null;
+  let n_samples = 44100;
+  let curve = new Float32Array(n_samples);
+  let deg = Math.PI / 180;
+  for (let i = 0; i < n_samples; ++i) {
+    let x = (i * 2) / n_samples - 1;
+    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
+}
+
 function resetToListening() {
   isRepeating = false;
   stateIndicator.textContent = "🐱 TAN IS LISTENING...";
@@ -184,38 +347,32 @@ function resetToListening() {
   logEvent("Tan finished speaking. Resuming microphone listening.");
 }
 
-// 5. Volume Monitor & Silence detection loop
 function startSilenceMonitor() {
   const dataArray = new Uint8Array(analyser.frequencyBinCount);
   
   setInterval(() => {
-    if (!isInitialized || isRepeating) return; // Ignore if Tan is talking (Software Mute)
+    if (!isInitialized || isRepeating) return; 
 
     analyser.getByteFrequencyData(dataArray);
     
-    // Calculate volume Root-Mean-Square (RMS)
     let total = 0;
     for (let i = 0; i < dataArray.length; i++) {
       total += dataArray[i];
     }
-    const currentVolume = total / dataArray.length / 255; // Normalized (0 to 1)
+    const currentVolume = total / dataArray.length / 255; 
 
-    // Voice Activity Detection (VAD) Logic
     if (currentVolume > gateThreshold) {
-      // User is talking
       if (!isSpeaking) {
         isSpeaking = true;
         logEvent("Sound detected. Recording started...");
         audioChunks = [];
         mediaRecorder.start();
       }
-      // Reset timer as long as user keeps talking
       if (silenceTimer) {
         clearTimeout(silenceTimer);
         silenceTimer = null;
       }
     } else {
-      // User is silent
       if (isSpeaking && !silenceTimer) {
         silenceTimer = setTimeout(() => {
           isSpeaking = false;
@@ -227,7 +384,6 @@ function startSilenceMonitor() {
   }, 50);
 }
 
-// 6. Simple Green Volume Meter Visualizer
 function drawVisualizer() {
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
@@ -246,7 +402,6 @@ function drawVisualizer() {
     for (let i = 0; i < bufferLength; i++) {
       barHeight = dataArray[i] / 3;
       
-      // Paint red if Tan is muted/speaking, green otherwise
       if (isRepeating) {
         canvasCtx.fillStyle = 'rgb(255, 85, 85)';
       } else {
