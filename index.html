@@ -41,7 +41,43 @@
   <div class="controls">
     <h2>🎛️ VOICE CONFIGURATOR</h2>
 
-    <!-- Pitch / Speed -->
+    <!-- Pitch / Speed (Default 1x) -->
+    <div class="slider-group">
+      <label for="slide-speed">Cat Pitch & Speed: <span id="val-speed">1.0</span>x</label>
+      <input type="range" id="slide-speed" min="1.0" max="2.0" step="0.05" value="1.0">
+    </div>
+
+    <!-- Fine Detuning (Default 500 cents) -->
+    <div class="slider-group">
+      <label for="slide-detune">Pitch Fine-Tune (Detune): <span id="val-detune">500</span> cents</label>
+      <input type="range" id="slide-detune" min="-1200" max="1200" step="50" value="500">
+    </div>
+
+    <!-- Gain Distortion / Bitcrusher -->
+    <div class="slider-group">
+      <label for="slide-distortion">Voice Distortion (Fuzz): <span id="val-distortion">0</span>%</label>
+      <input type="range" id="slide-distortion" min="0" max="100" step="5" value="0">
+    </div>
+
+    <!-- Echo Delay Time -->
+    <div class="slider-group">
+      <label for="slide-delay">Echo Delay Time: <span id="val-delay">0</span> ms</label>
+      <input type="range" id="slide-delay" min="0" max="1000" step="50" value="0">
+    </div>
+
+    <!-- Echo Feedback -->
+    <div class="slider-group">
+      <label for="slide-feedback">Echo Feedback (Decay): <span id="val-feedback">0</span>%</label>
+      <input type="range" id="slide-feedback" min="0" max="90" step="5" value="0">
+    </div>
+
+    <!-- Tremolo (Robot shaking) -->
+    <div class="slider-group">
+      <label for="slide-tremolo">Tremolo/Robot Shake: <span id="val-tremolo">0</span> Hz</label>
+      <input type="range" id="slide-tremolo" min="0" max="25" step="1" value="0">
+    </div>
+
+    <!-- Highpass Filter (Tiny Speaker simulation) -->
     <div class="slider-group">
       <div class="label-row">
         <label for="slide-speed">Cat Pitch & Speed (PlaybackRate):</label>
@@ -50,7 +86,7 @@
       <input type="range" id="slide-speed" min="1.0" max="2.0" step="0.05" value="1.0">
     </div>
 
-    <!-- Fine Detuning -->
+    <!-- Lowpass Filter (Muffler) -->
     <div class="slider-group">
       <div class="label-row">
         <label for="slide-detune">Pitch Fine-Tune (Detune cents):</label>

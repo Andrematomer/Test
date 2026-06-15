@@ -317,8 +317,12 @@ function playVoiceWithDSP(buffer) {
 
   source.start(0);
   logEvent(`Tan is speaking. FX active.`);
+  logEvent(`Tan is speaking. FX active.`);
 
   source.onended = () => {
+    if (tremoloOsc) {
+      try { tremoloOsc.stop(); } catch(e) {}
+    }
     if (tremoloOsc) {
       try { tremoloOsc.stop(); } catch(e) {}
     }
