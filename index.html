@@ -24,16 +24,52 @@
   <div class="controls">
     <h2>🎛️ VOICE CONFIGURATOR</h2>
 
-    <!-- Pitch / Speed -->
+    <!-- Pitch / Speed (Default 1x) -->
     <div class="slider-group">
-      <label for="slide-speed">Cat Pitch & Speed: <span id="val-speed">1.4</span>x</label>
-      <input type="range" id="slide-speed" min="1.0" max="2.0" step="0.05" value="1.4">
+      <label for="slide-speed">Cat Pitch & Speed: <span id="val-speed">1.0</span>x</label>
+      <input type="range" id="slide-speed" min="1.0" max="2.0" step="0.05" value="1.0">
     </div>
 
-    <!-- Fine Detuning -->
+    <!-- Fine Detuning (Default 500 cents) -->
     <div class="slider-group">
-      <label for="slide-detune">Pitch Fine-Tune (Detune): <span id="val-detune">0</span> cents</label>
-      <input type="range" id="slide-detune" min="-1200" max="1200" step="50" value="0">
+      <label for="slide-detune">Pitch Fine-Tune (Detune): <span id="val-detune">500</span> cents</label>
+      <input type="range" id="slide-detune" min="-1200" max="1200" step="50" value="500">
+    </div>
+
+    <!-- Gain Distortion / Bitcrusher -->
+    <div class="slider-group">
+      <label for="slide-distortion">Voice Distortion (Fuzz): <span id="val-distortion">0</span>%</label>
+      <input type="range" id="slide-distortion" min="0" max="100" step="5" value="0">
+    </div>
+
+    <!-- Echo Delay Time -->
+    <div class="slider-group">
+      <label for="slide-delay">Echo Delay Time: <span id="val-delay">0</span> ms</label>
+      <input type="range" id="slide-delay" min="0" max="1000" step="50" value="0">
+    </div>
+
+    <!-- Echo Feedback -->
+    <div class="slider-group">
+      <label for="slide-feedback">Echo Feedback (Decay): <span id="val-feedback">0</span>%</label>
+      <input type="range" id="slide-feedback" min="0" max="90" step="5" value="0">
+    </div>
+
+    <!-- Tremolo (Robot shaking) -->
+    <div class="slider-group">
+      <label for="slide-tremolo">Tremolo/Robot Shake: <span id="val-tremolo">0</span> Hz</label>
+      <input type="range" id="slide-tremolo" min="0" max="25" step="1" value="0">
+    </div>
+
+    <!-- Highpass Filter (Tiny Speaker simulation) -->
+    <div class="slider-group">
+      <label for="slide-highpass">Speaker Filter (Highpass): <span id="val-highpass">0</span> Hz</label>
+      <input type="range" id="slide-highpass" min="0" max="1500" step="50" value="0">
+    </div>
+
+    <!-- Lowpass Filter (Muffler) -->
+    <div class="slider-group">
+      <label for="slide-lowpass">Muffle Filter (Lowpass): <span id="val-lowpass">8000</span> Hz</label>
+      <input type="range" id="slide-lowpass" min="1000" max="8000" step="500" value="8000">
     </div>
 
     <!-- Audio Gate / Mic threshold -->
@@ -47,15 +83,8 @@
       <label for="slide-silence">Silence Timeout: <span id="val-silence">1200</span> ms</label>
       <input type="range" id="slide-silence" min="500" max="2500" step="100" value="1200">
     </div>
-
-    <!-- Bandpass / Toy speaker Filter -->
-    <div class="slider-group">
-      <label for="slide-filter">Speaker Filter (Lowpass): <span id="val-filter">3000</span> Hz</label>
-      <input type="range" id="slide-filter" min="1000" max="8000" step="500" value="3000">
-    </div>
   </div>
 
-  <!-- Consolidated Debug Logs Section -->
   <pre id="debug-log">[Tan System Initialized]</pre>
 
   <script src="app.js"></script>

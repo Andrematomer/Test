@@ -25,9 +25,14 @@ if ('serviceWorker' in navigator) {
 // Voice Parameters
 let gateThreshold = 0.03;       // Mic trigger volume
 let silenceTimeoutValue = 1200; // Time in ms to wait before repeating
-let playbackSpeed = 1.4;        // Cat pitch scale
-let detuneValue = 0;            // Fine pitch tuning (cents)
-let filterFrequency = 3000;     // Lowpass filter frequency
+let playbackSpeed = 1.0;        // Default speed 1x
+let detuneValue = 500;          // Default detune 500 cents
+let distortionAmount = 0;       // Waveshaper distortion (0 to 100)
+let delayTimeMs = 0;            // Echo delay (0 to 1000ms)
+let delayFeedback = 0.0;        // Echo decay percentage (0.0 to 0.9)
+let tremoloRate = 0;            // Tremolo frequency (0 to 25Hz)
+let highpassFreq = 0;           // Highpass filter (0 to 1500Hz)
+let lowpassFreq = 8000;         // Lowpass filter (1000 to 8000Hz)
 
 // Bind Sliders to DOM and Variables
 const slideSpeed = document.getElementById('slide-speed');
@@ -44,6 +49,48 @@ slideDetune.addEventListener('input', (e) => {
   valDetune.textContent = detuneValue;
 });
 
+const slideDistortion = document.getElementById('slide-distortion');
+const valDistortion = document.getElementById('val-distortion');
+slideDistortion.addEventListener('input', (e) => {
+  distortionAmount = parseInt(e.target.value);
+  valDistortion.textContent = distortionAmount;
+});
+
+const slideDelay = document.getElementById('slide-delay');
+const valDelay = document.getElementById('val-delay');
+slideDelay.addEventListener('input', (e) => {
+  delayTimeMs = parseInt(e.target.value);
+  valDelay.textContent = delayTimeMs;
+});
+
+const slideFeedback = document.getElementById('slide-feedback');
+const valFeedback = document.getElementById('val-feedback');
+slideFeedback.addEventListener('input', (e) => {
+  delayFeedback = parseFloat(e.target.value) / 100;
+  valFeedback.textContent = e.target.value;
+});
+
+const slideTremolo = document.getElementById('slide-tremolo');
+const valTremolo = document.getElementById('val-tremolo');
+slideTremolo.addEventListener('input', (e) => {
+  tremoloRate = parseInt(e.target.value);
+  valTremolo.textContent = tremoloRate;
+});
+
+const slideHighpass = document.getElementById('slide-highpass');
+const valHighpass = document.getElementById('val-highpass');
+slideHighpass.addEventListener('input', (e) => {
+  highpassFreq = parseInt(e.target.value);
+  valHighpass.textContent = highpassFreq;
+});
+
+const slideLowpass = document.getElementById('slide-lowpass');
+const valLowpass = document.getElementById('val-lowpass');
+slideLowpass.addEventListener('input', (e) => {
+  lowpassFreq = parseInt(e.target.value);
+  valLowpass.textContent = lowpassFreq;
+});
+
 const slideGate = document.getElementById('slide-gate');
 const valGate = document.getElementById('val-gate');
 slideGate.addEventListener('input', (e) => {
@@ -56,13 +103,6 @@ const valSilence = document.getElementById('val-silence');
 slideSilence.addEventListener('input', (e) => {
   silenceTimeoutValue = parseInt(e.target.value);
   valSilence.textContent = silenceTimeoutValue;
-});
-
-const slideFilter = document.getElementById('slide-filter');
-const valFilter = document.getElementById('val-filter');
-slideFilter.addEventListener('input', (e) => {
-  filterFrequency = parseInt(e.target.value);
-  valFilter.textContent = filterFrequency;
 });
 
 // Audio variables
@@ -89,11 +129,9 @@ btnActivate.addEventListener('click', async () => {
   
   logEvent("Initializing audio hardware...");
   try {
-    // Request raw microphone access
     stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
-    // Analyze microphone volume
     const source = audioCtx.createMediaStreamSource(stream);
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 256;
@@ -136,7 +174,6 @@ function setupMediaRecorder() {
 
     try {
       const arrayBuffer = await audioBlob.arrayBuffer();
-      // Decode raw mic data to Web Audio Buffer
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       playVoiceWithDSP(audioBuffer);
     } catch (err) {
@@ -146,32 +183,102 @@ function setupMediaRecorder() {
   };
 }
 
+// Helper function to build standard waveshaper distortion curve
+function makeDistortionCurve(amount) {
+  let k = typeof amount === 'number' ? amount : 50;
+  if (k === 0) return null;
+  let n_samples = 44100;
+  let curve = new Float32Array(n_samples);
+  let deg = Math.PI / 180;
+  for (let i = 0; i < n_samples; ++i) {
+    let x = (i * 2) / n_samples - 1;
+    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
+}
+
 // 3. Playback with Cat DSP processing
 function playVoiceWithDSP(buffer) {
   const source = audioCtx.createBufferSource();
   source.buffer = buffer;
 
-  // Apply cat high-pitch and speed
+  // 1. Apply cat speed
   source.playbackRate.value = playbackSpeed;
   
-  // Apply detuning (fine pitch tuning)
+  // 2. Apply detuning (fine pitch tuning)
   if (source.detune) {
     source.detune.value = detuneValue;
   }
 
-  // Filter out harsh highs to mimic toy cat speaker
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = filterFrequency;
+  // 3. Setup Highpass Filter (Speaker simulation)
+  const highpass = audioCtx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = highpassFreq;
 
-  // Connect the chain: Source -> Filter -> Output
-  source.connect(filter);
-  filter.connect(audioCtx.destination);
+  // 4. Setup Lowpass Filter (Muffler)
+  const lowpass = audioCtx.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.value = lowpassFreq;
+
+  // 5. Setup Distortion (Waveshaper)
+  const distortion = audioCtx.createWaveShaper();
+  const dCurve = makeDistortionCurve(distortionAmount);
+  if (dCurve) {
+    distortion.curve = dCurve;
+    distortion.oversample = '4x';
+  }
+
+  // 6. Setup Delay / Echo Node
+  const delay = audioCtx.createDelay(1.0); // max delay 1 second
+  delay.delayTime.value = delayTimeMs / 1000; // convert to seconds
+  
+  const feedback = audioCtx.createGain();
+  feedback.gain.value = delayFeedback;
+
+  // Connect Delay feedback loop
+  delay.connect(feedback);
+  feedback.connect(delay);
+
+  // 7. Setup Tremolo (Gain Node modulated by LFO)
+  const tremoloGain = audioCtx.createGain();
+  tremoloGain.gain.value = 1.0;
+  let tremoloOsc = null;
+
+  if (tremoloRate > 0) {
+    const tremoloLFO = audioCtx.createOscillator();
+    tremoloLFO.type = 'sine';
+    tremoloLFO.frequency.value = tremoloRate;
+    
+    const lfoGain = audioCtx.createGain();
+    lfoGain.gain.value = 0.5; // Depth of tremolo oscillation (0 to 1)
+
+    tremoloLFO.connect(lfoGain);
+    lfoGain.connect(tremoloGain.gain);
+    tremoloLFO.start(0);
+    tremoloOsc = tremoloLFO;
+  }
+
+  // Connect the main series chain:
+  // Source -> Distortion -> Highpass -> Lowpass -> TremoloGain -> Out
+  source.connect(distortion);
+  distortion.connect(highpass);
+  highpass.connect(lowpass);
+  lowpass.connect(tremoloGain);
+  tremoloGain.connect(audioCtx.destination);
+
+  // Inject Parallel Echo Delay if delay is active
+  if (delayTimeMs > 0) {
+    tremoloGain.connect(delay);
+    delay.connect(audioCtx.destination);
+  }
 
   source.start(0);
-  logEvent(`Tan is speaking. Speed: ${playbackSpeed}x, Detune: ${detuneValue}cents`);
+  logEvent(`Tan is speaking. FX active.`);
 
   source.onended = () => {
+    if (tremoloOsc) {
+      try { tremoloOsc.stop(); } catch(e) {}
+    }
     resetToListening();
   };
 }
@@ -193,7 +300,6 @@ function startSilenceMonitor() {
 
     analyser.getByteFrequencyData(dataArray);
     
-    // Calculate volume Root-Mean-Square (RMS)
     let total = 0;
     for (let i = 0; i < dataArray.length; i++) {
       total += dataArray[i];
@@ -202,20 +308,17 @@ function startSilenceMonitor() {
 
     // Voice Activity Detection (VAD) Logic
     if (currentVolume > gateThreshold) {
-      // User is talking
       if (!isSpeaking) {
         isSpeaking = true;
         logEvent("Sound detected. Recording started...");
         audioChunks = [];
         mediaRecorder.start();
       }
-      // Reset timer as long as user keeps talking
       if (silenceTimer) {
         clearTimeout(silenceTimer);
         silenceTimer = null;
       }
     } else {
-      // User is silent
       if (isSpeaking && !silenceTimer) {
         silenceTimer = setTimeout(() => {
           isSpeaking = false;
@@ -246,7 +349,6 @@ function drawVisualizer() {
     for (let i = 0; i < bufferLength; i++) {
       barHeight = dataArray[i] / 3;
       
-      // Paint red if Tan is muted/speaking, green otherwise
       if (isRepeating) {
         canvasCtx.fillStyle = 'rgb(255, 85, 85)';
       } else {
