@@ -1,6 +1,6 @@
 {
-  "name": "PWA Permission Hell Test",
-  "short_name": "Permission Test",
+  "name": "Talking Tan",
+  "short_name": "Talking Tan",
   "start_url": "/test/index.html",
   "display": "standalone",
   "background_color": "#121212",

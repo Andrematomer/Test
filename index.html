@@ -3,92 +3,60 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PWA Permission Hell</title>
+  <title>Talking Tan</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon.svg">
 </head>
 <body>
 
-  <h1>⚠️ PWA Permission Hell</h1>
-  <p id="net-status">Connection: checking...</p>
-  <p class="notice">This page tracks system integration limits in iOS vs Android.</p>
+  <h1>🐱 Talking Tan</h1>
+  <p class="notice">Listen & Repeat Offline PWA Engine</p>
 
-  <div class="grid">
+  <!-- Visualizer Board -->
+  <div class="visualizer-container">
+    <div id="state-indicator">TAP START TO ACTIVATE</div>
+    <canvas id="volume-canvas"></canvas>
+    <button id="btn-activate">START TALKING TAN</button>
+  </div>
 
-    <!-- Persistence & Offline Save -->
-    <div class="card">
-      <h2>1. Offline State Save</h2>
-      <p>Type anything to test local storage offline persistence:</p>
-      <input type="text" id="save-input" style="width: 90%; background: #2a2a2a; color: #fff; border: 1px solid #555; padding: 5px;" placeholder="Type here...">
-      <p id="save-output" style="color: #ffaa00; margin-top: 10px;">Last saved value: None</p>
+  <!-- Sound Customization parameters -->
+  <div class="controls">
+    <h2>🎛️ VOICE CONFIGURATOR</h2>
+
+    <!-- Pitch / Speed -->
+    <div class="slider-group">
+      <label for="slide-speed">Cat Pitch & Speed: <span id="val-speed">1.4</span>x</label>
+      <input type="range" id="slide-speed" min="1.0" max="2.0" step="0.05" value="1.4">
     </div>
 
-    <!-- Geolocation -->
-    <div class="card">
-      <h2>2. Geolocation (Continuous GPS)</h2>
-      <p>Permission Status: <span id="gps-status" class="status unsupported">Unknown</span></p>
-      <pre id="gps-data">No data acquired.</pre>
-      <button id="btn-gps">Start Continuous Tracking</button>
+    <!-- Fine Detuning -->
+    <div class="slider-group">
+      <label for="slide-detune">Pitch Fine-Tune (Detune): <span id="val-detune">0</span> cents</label>
+      <input type="range" id="slide-detune" min="-1200" max="1200" step="50" value="0">
     </div>
 
-    <!-- Camera Feed -->
-    <div class="card">
-      <h2>3. Camera Access</h2>
-      <p>Status: <span id="cam-status" class="status unsupported">Not Activated</span></p>
-      <video id="video-element" autoplay playsinline muted></video>
-      <button id="btn-cam">Request Camera</button>
+    <!-- Audio Gate / Mic threshold -->
+    <div class="slider-group">
+      <label for="slide-gate">Gate Sensitivity (Trigger Vol): <span id="val-gate">0.03</span></label>
+      <input type="range" id="slide-gate" min="0.005" max="0.1" step="0.005" value="0.03">
     </div>
 
-    <!-- Audio / Microphone level -->
-    <div class="card">
-      <h2>4. Mic Level (AudioContext)</h2>
-      <p>Status: <span id="mic-status" class="status unsupported">Not Activated</span></p>
-      <canvas id="mic-canvas"></canvas>
-      <button id="btn-mic">Request Microphone</button>
+    <!-- Silence Duration -->
+    <div class="slider-group">
+      <label for="slide-silence">Silence Timeout: <span id="val-silence">1200</span> ms</label>
+      <input type="range" id="slide-silence" min="500" max="2500" step="100" value="1200">
     </div>
 
-    <!-- Motion Sensors (Gyroscope & Accel) -->
-    <div class="card">
-      <h2>5. Device Orientation & Motion</h2>
-      <p>Status: <span id="motion-status" class="status unsupported">Unknown</span></p>
-      <pre id="motion-data">No movement detected.</pre>
-      <button id="btn-motion">Request Motion Permission</button>
+    <!-- Bandpass / Toy speaker Filter -->
+    <div class="slider-group">
+      <label for="slide-filter">Speaker Filter (Lowpass): <span id="val-filter">3000</span> Hz</label>
+      <input type="range" id="slide-filter" min="1000" max="8000" step="500" value="3000">
     </div>
-
-    <!-- Contacts Picker (Android Only API) -->
-    <div class="card">
-      <h2>6. Contacts Picker API</h2>
-      <p>Support: <span id="contacts-status" class="status unsupported">Checking...</span></p>
-      <pre id="contacts-data">No contacts selected.</pre>
-      <button id="btn-contacts">Pick Contacts</button>
-    </div>
-
-    <!-- Web Push Notifications -->
-    <div class="card">
-      <h2>7. Push Notifications</h2>
-      <p>Status: <span id="notify-status" class="status unsupported">Checking...</span></p>
-      <button id="btn-notify">Request Notification Permission</button>
-    </div>
-
-    <!-- Aggressive Permissions (Storage & Wake Lock) -->
-    <div class="card">
-      <h2>8. Aggressive Permissions</h2>
-      <p>Storage Persistence: <span id="persist-status" class="status unsupported">Unknown</span></p>
-      <button id="btn-persist">Request Persistent Storage</button>
-      <p style="margin-top: 15px;">Screen Wake Lock: <span id="wake-status" class="status unsupported">Inactive</span></p>
-      <button id="btn-wake">Request Wake Lock (Keep Screen On)</button>
-    </div>
-
   </div>
 
   <!-- Consolidated Debug Logs Section -->
-  <div class="card" style="margin-top: 20px; border-color: #ff5555;">
-    <h2 style="color: #ff5555; border-color: #ff5555;">📋 System Debug Logs</h2>
-    <p class="notice">All errors, browser metadata, and API checks are logged here. Copy and paste this text directly to debug.</p>
-    <button id="btn-copy-log" style="background: #ff5555; border-color: #ff3333; color: #fff; font-weight: bold;">Copy Log to Clipboard</button>
-    <pre id="debug-log" style="max-height: 250px; background: #000; color: #55ff55;">[System Logs Initiated]</pre>
-  </div>
+  <pre id="debug-log">[Tan System Initialized]</pre>
 
   <script src="app.js"></script>
 </body>

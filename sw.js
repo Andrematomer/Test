@@ -1,4 +1,4 @@
-const CACHE_NAME = 'permission-hell-v1';
+const CACHE_NAME = 'talking-tan-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -8,26 +8,24 @@ const ASSETS = [
   './icon.svg'
 ];
 
-// Install Service Worker and cache essential code assets
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('SW: Pre-caching critical assets');
+        console.log('SW: Pre-caching assets');
         return cache.addAll(ASSETS);
       })
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate & Clean up old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
         keys.map(key => {
           if (key !== CACHE_NAME) {
-            console.log('SW: Clearing outdated cache', key);
+            console.log('SW: Clearing old cache');
             return caches.delete(key);
           }
         })
@@ -36,15 +34,14 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Intercept requests and serve from Cache first when offline
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(cachedResponse => {
         if (cachedResponse) {
-          return cachedResponse; // Return cached code asset offline
+          return cachedResponse;
         }
-        return fetch(event.request); // Retrieve online as normal
+        return fetch(event.request);
       })
   );
 });

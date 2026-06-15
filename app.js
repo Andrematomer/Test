@@ -1,4 +1,4 @@
-// Global Log array to compile for copy-paste
+// Global Log for copy-paste debugging
 const logs = [];
 function logEvent(message, isError = false) {
   const timestamp = new Date().toLocaleTimeString();
@@ -11,381 +11,251 @@ function logEvent(message, isError = false) {
     debugLogElem.textContent = logs.join('\n');
     debugLogElem.scrollTop = debugLogElem.scrollHeight;
   }
-  console.log(logLine);
 }
 
-// Log basic browser configuration details
-logEvent(`User Agent: ${navigator.userAgent}`);
-logEvent(`Secure Context (HTTPS/Localhost): ${window.isSecureContext}`);
-logEvent(`Protocol: ${window.location.protocol}`);
-
-// Register Service Worker
+// Service Worker Offline Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(reg => logEvent(`Service Worker Registered on scope: ${reg.scope}`))
-      .catch(err => logEvent(`Service Worker Registration Failed: ${err.message}`, true));
+      .then(reg => logEvent(`Service Worker registered: ${reg.scope}`))
+      .catch(err => logEvent(`Service Worker registration failed: ${err.message}`, true));
   });
-} else {
-  logEvent('Service Workers are completely unsupported on this browser.', true);
 }
 
-// 1. Connection and Offline State persistence test
-const netStatus = document.getElementById('net-status');
-const saveInput = document.getElementById('save-input');
-const saveOutput = document.getElementById('save-output');
+// Voice Parameters
+let gateThreshold = 0.03;       // Mic trigger volume
+let silenceTimeoutValue = 1200; // Time in ms to wait before repeating
+let playbackSpeed = 1.4;        // Cat pitch scale
+let detuneValue = 0;            // Fine pitch tuning (cents)
+let filterFrequency = 3000;     // Lowpass filter frequency
 
-function updateNetworkStatus() {
-  if (navigator.onLine) {
-    netStatus.textContent = "Connection: ONLINE";
-    netStatus.className = "status granted";
-    logEvent("Network status changed to: ONLINE");
-  } else {
-    netStatus.textContent = "Connection: OFFLINE (Fully functioning locally)";
-    netStatus.className = "status denied";
-    logEvent("Network status changed to: OFFLINE");
-  }
-}
-window.addEventListener('online', updateNetworkStatus);
-window.addEventListener('offline', updateNetworkStatus);
-updateNetworkStatus();
-
-const savedData = localStorage.getItem('pwa_test_value');
-if (savedData) {
-  saveOutput.textContent = `Last saved value (recovered): "${savedData}"`;
-  logEvent(`Recovered stored LocalStorage value: "${savedData}"`);
-}
-saveInput.addEventListener('input', (e) => {
-  localStorage.setItem('pwa_test_value', e.target.value);
-  saveOutput.textContent = `Saved locally: "${e.target.value}"`;
+// Bind Sliders to DOM and Variables
+const slideSpeed = document.getElementById('slide-speed');
+const valSpeed = document.getElementById('val-speed');
+slideSpeed.addEventListener('input', (e) => {
+  playbackSpeed = parseFloat(e.target.value);
+  valSpeed.textContent = playbackSpeed;
 });
 
-
-// 2. Geolocation (Continuous Tracking)
-const btnGps = document.getElementById('btn-gps');
-const gpsStatus = document.getElementById('gps-status');
-const gpsData = document.getElementById('gps-data');
-let gpsWatchId = null;
-
-btnGps.addEventListener('click', () => {
-  if (!navigator.geolocation) {
-    gpsStatus.textContent = "Unsupported";
-    gpsStatus.className = "status unsupported";
-    logEvent("Geolocation API is completely missing from navigator object.", true);
-    return;
-  }
-  
-  if (gpsWatchId !== null) {
-    navigator.geolocation.clearWatch(gpsWatchId);
-    gpsWatchId = null;
-    btnGps.textContent = "Start Continuous Tracking";
-    logEvent("Continuous GPS tracking stopped manually.");
-    return;
-  }
-
-  logEvent("Requesting continuous Geolocation tracking...");
-  gpsWatchId = navigator.geolocation.watchPosition(
-    (position) => {
-      gpsStatus.textContent = "GRANTED (Tracking)";
-      gpsStatus.className = "status granted";
-      const info = `Lat: ${position.coords.latitude.toFixed(5)}\nLon: ${position.coords.longitude.toFixed(5)}\nAcc: ±${position.coords.accuracy.toFixed(1)}m\nTime: ${new Date(position.timestamp).toLocaleTimeString()}`;
-      gpsData.textContent = info;
-      logEvent(`GPS Update: Lat ${position.coords.latitude.toFixed(4)}, Lon ${position.coords.longitude.toFixed(4)}`);
-    },
-    (error) => {
-      gpsStatus.textContent = "DENIED / FAILED";
-      gpsStatus.className = "status denied";
-      gpsData.textContent = error.message;
-      logEvent(`Geolocation error triggered: ${error.message} (Code: ${error.code})`, true);
-    },
-    { enableHighAccuracy: true }
-  );
-  btnGps.textContent = "Stop Tracking";
+const slideDetune = document.getElementById('slide-detune');
+const valDetune = document.getElementById('val-detune');
+slideDetune.addEventListener('input', (e) => {
+  detuneValue = parseInt(e.target.value);
+  valDetune.textContent = detuneValue;
 });
 
-
-// 3. Camera Access
-const btnCam = document.getElementById('btn-cam');
-const camStatus = document.getElementById('cam-status');
-const video = document.getElementById('video-element');
-
-btnCam.addEventListener('click', async () => {
-  logEvent("Initiating camera permission request...");
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    camStatus.textContent = "UNSUPPORTED";
-    camStatus.className = "status unsupported";
-    logEvent("navigator.mediaDevices.getUserMedia is undefined.", true);
-    return;
-  }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    video.srcObject = stream;
-    camStatus.textContent = "ACTIVE";
-    camStatus.className = "status granted";
-    logEvent("Camera stream initialized successfully.");
-  } catch (err) {
-    camStatus.textContent = "DENIED / FAILED";
-    camStatus.className = "status denied";
-    logEvent(`Camera request failed: ${err.name} - ${err.message}`, true);
-  }
+const slideGate = document.getElementById('slide-gate');
+const valGate = document.getElementById('val-gate');
+slideGate.addEventListener('input', (e) => {
+  gateThreshold = parseFloat(e.target.value);
+  valGate.textContent = gateThreshold;
 });
 
+const slideSilence = document.getElementById('slide-silence');
+const valSilence = document.getElementById('val-silence');
+slideSilence.addEventListener('input', (e) => {
+  silenceTimeoutValue = parseInt(e.target.value);
+  valSilence.textContent = silenceTimeoutValue;
+});
 
-// 4. Microphone & Live Audio
-const btnMic = document.getElementById('btn-mic');
-const micStatus = document.getElementById('mic-status');
-const canvas = document.getElementById('mic-canvas');
+const slideFilter = document.getElementById('slide-filter');
+const valFilter = document.getElementById('val-filter');
+slideFilter.addEventListener('input', (e) => {
+  filterFrequency = parseInt(e.target.value);
+  valFilter.textContent = filterFrequency;
+});
+
+// Audio variables
+let audioCtx = null;
+let stream = null;
+let analyser = null;
+let mediaRecorder = null;
+let audioChunks = [];
+
+// App Loop States
+let isInitialized = false;
+let isSpeaking = false;      // True if USER is actively talking
+let isRepeating = false;     // True if TAN is currently playing back
+let silenceTimer = null;
+
+const btnActivate = document.getElementById('btn-activate');
+const stateIndicator = document.getElementById('state-indicator');
+const canvas = document.getElementById('volume-canvas');
 const canvasCtx = canvas.getContext('2d');
 
-btnMic.addEventListener('click', async () => {
-  logEvent("Initiating microphone permission request...");
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    micStatus.textContent = "UNSUPPORTED";
-    micStatus.className = "status unsupported";
-    logEvent("navigator.mediaDevices.getUserMedia is undefined for microphone.", true);
-    return;
-  }
+// 1. Initial activation via secure iOS click-gesture
+btnActivate.addEventListener('click', async () => {
+  if (isInitialized) return;
+  
+  logEvent("Initializing audio hardware...");
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    micStatus.textContent = "ACTIVE";
-    micStatus.className = "status granted";
-    logEvent("Microphone stream initialized successfully.");
-
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Request raw microphone access
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Analyze microphone volume
     const source = audioCtx.createMediaStreamSource(stream);
-    const analyser = audioCtx.createAnalyser();
+    analyser = audioCtx.createAnalyser();
     analyser.fftSize = 256;
     source.connect(analyser);
 
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    setupMediaRecorder();
+    startSilenceMonitor();
+    drawVisualizer();
 
-    function drawAudio() {
-      requestAnimationFrame(drawAudio);
-      analyser.getByteFrequencyData(dataArray);
-
-      canvasCtx.fillStyle = '#222';
-      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-
-      let barWidth = (canvas.width / bufferLength) * 2.5;
-      let barHeight;
-      let x = 0;
-
-      for (let i = 0; i < bufferLength; i++) {
-        barHeight = dataArray[i] / 2;
-        canvasCtx.fillStyle = `rgb(85, 255, ${barHeight + 100})`;
-        canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-        x += barWidth + 1;
-      }
-    }
-    drawAudio();
+    isInitialized = true;
+    btnActivate.style.display = "none";
+    stateIndicator.textContent = "🐱 TAN IS LISTENING...";
+    stateIndicator.style.color = "#55ff55";
+    logEvent("Talking Tan is active and listening.");
   } catch (err) {
-    micStatus.textContent = "DENIED / FAILED";
-    micStatus.className = "status denied";
-    logEvent(`Microphone request failed: ${err.name} - ${err.message}`, true);
+    stateIndicator.textContent = "ACTIVATION FAILED";
+    stateIndicator.style.color = "#ff5555";
+    logEvent(`Hardware initial failed: ${err.message}`, true);
   }
 });
 
-
-// 5. Device Orientation & Motion
-const btnMotion = document.getElementById('btn-motion');
-const motionStatus = document.getElementById('motion-status');
-const motionData = document.getElementById('motion-data');
-
-function startSensorListeners() {
-  logEvent("Binding sensors: listening to device orientation.");
-  window.addEventListener('deviceorientation', (event) => {
-    if (event.alpha === null && event.beta === null) {
-      motionData.textContent = "Permission is active, but hardware stream is empty (blocked on HTTP).";
-    } else {
-      motionData.textContent = `Alpha (Yaw): ${event.alpha?.toFixed(2)}°\nBeta (Pitch): ${event.beta?.toFixed(2)}°\nGamma (Roll): ${event.gamma?.toFixed(2)}°`;
+// 2. Setup the MediaRecorder API
+function setupMediaRecorder() {
+  mediaRecorder = new MediaRecorder(stream);
+  
+  mediaRecorder.ondataavailable = (event) => {
+    if (event.data.size > 0) {
+      audioChunks.push(event.data);
     }
-  });
-  motionStatus.textContent = "ACTIVE";
-  motionStatus.className = "status granted";
-}
+  };
 
-btnMotion.addEventListener('click', async () => {
-  logEvent("Requesting accelerometer/gyroscope access...");
-  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+  mediaRecorder.onstop = async () => {
+    logEvent("User stopped talking. Encoding voice buffer...");
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    audioChunks = [];
+    
+    isRepeating = true;
+    stateIndicator.textContent = "🐱 TAN IS REPEATING...";
+    stateIndicator.style.color = "#ffaa00";
+
     try {
-      const permission = await DeviceOrientationEvent.requestPermission();
-      logEvent(`DeviceOrientationPermission resolved: ${permission}`);
-      if (permission === 'granted') {
-        startSensorListeners();
-      } else {
-        motionStatus.textContent = "DENIED";
-        motionStatus.className = "status denied";
-      }
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      // Decode raw mic data to Web Audio Buffer
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      playVoiceWithDSP(audioBuffer);
     } catch (err) {
-      motionStatus.textContent = "ERROR";
-      motionStatus.className = "status denied";
-      motionData.textContent = err.message;
-      logEvent(`Motion sensor permission crashed: ${err.message}`, true);
+      logEvent(`Failed to decode voice buffer: ${err.message}`, true);
+      resetToListening();
     }
-  } else {
-    logEvent("Browsers does not require explicit gesture-permission for sensor access. Initiating directly.");
-    startSensorListeners();
-  }
-});
-
-
-// 6. Contact Picker API
-const btnContacts = document.getElementById('btn-contacts');
-const contactsStatus = document.getElementById('contacts-status');
-const contactsData = document.getElementById('contacts-data');
-
-if ('contacts' in navigator && 'select' in navigator.contacts) {
-  contactsStatus.textContent = "SUPPORTED";
-  contactsStatus.className = "status granted";
-  logEvent("Contact Picker API is supported natively.");
-} else {
-  contactsStatus.textContent = "UNSUPPORTED";
-  contactsStatus.className = "status unsupported";
-  btnContacts.disabled = true;
-  logEvent("Contact Picker API is completely unsupported.", true);
+  };
 }
 
-btnContacts.addEventListener('click', async () => {
-  const props = ['name', 'tel'];
-  try {
-    logEvent("Opening system contact selection modal...");
-    const contacts = await navigator.contacts.select(props, { multiple: true });
-    if (contacts.length > 0) {
-      let result = "";
-      contacts.forEach(c => {
-        result += `Name: ${c.name ? c.name[0] : 'N/A'}\nTel: ${c.tel ? c.tel[0] : 'N/A'}\n\n`;
-      });
-      contactsData.textContent = result;
-      logEvent(`Successfully imported ${contacts.length} contacts.`);
+// 3. Playback with Cat DSP processing
+function playVoiceWithDSP(buffer) {
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+
+  // Apply cat high-pitch and speed
+  source.playbackRate.value = playbackSpeed;
+  
+  // Apply detuning (fine pitch tuning)
+  if (source.detune) {
+    source.detune.value = detuneValue;
+  }
+
+  // Filter out harsh highs to mimic toy cat speaker
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = filterFrequency;
+
+  // Connect the chain: Source -> Filter -> Output
+  source.connect(filter);
+  filter.connect(audioCtx.destination);
+
+  source.start(0);
+  logEvent(`Tan is speaking. Speed: ${playbackSpeed}x, Detune: ${detuneValue}cents`);
+
+  source.onended = () => {
+    resetToListening();
+  };
+}
+
+// 4. Reset software mute and return to listening mode
+function resetToListening() {
+  isRepeating = false;
+  stateIndicator.textContent = "🐱 TAN IS LISTENING...";
+  stateIndicator.style.color = "#55ff55";
+  logEvent("Tan finished speaking. Resuming microphone listening.");
+}
+
+// 5. Volume Monitor & Silence detection loop
+function startSilenceMonitor() {
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  
+  setInterval(() => {
+    if (!isInitialized || isRepeating) return; // Ignore if Tan is talking (Software Mute)
+
+    analyser.getByteFrequencyData(dataArray);
+    
+    // Calculate volume Root-Mean-Square (RMS)
+    let total = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      total += dataArray[i];
+    }
+    const currentVolume = total / dataArray.length / 255; // Normalized (0 to 1)
+
+    // Voice Activity Detection (VAD) Logic
+    if (currentVolume > gateThreshold) {
+      // User is talking
+      if (!isSpeaking) {
+        isSpeaking = true;
+        logEvent("Sound detected. Recording started...");
+        audioChunks = [];
+        mediaRecorder.start();
+      }
+      // Reset timer as long as user keeps talking
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+        silenceTimer = null;
+      }
     } else {
-      contactsData.textContent = "Picked nothing.";
-      logEvent("Contact picker opened, but user cancelled or selected nothing.");
+      // User is silent
+      if (isSpeaking && !silenceTimer) {
+        silenceTimer = setTimeout(() => {
+          isSpeaking = false;
+          mediaRecorder.stop();
+          silenceTimer = null;
+        }, silenceTimeoutValue);
+      }
     }
-  } catch (err) {
-    contactsData.textContent = `Error: ${err.message}`;
-    logEvent(`Contact picker error: ${err.message}`, true);
-  }
-});
-
-
-// 7. Push Notifications
-const btnNotify = document.getElementById('btn-notify');
-const notifyStatus = document.getElementById('notify-status');
-
-if ('Notification' in window) {
-  notifyStatus.textContent = Notification.permission.toUpperCase();
-  if (Notification.permission === 'granted') notifyStatus.className = "status granted";
-  if (Notification.permission === 'denied') notifyStatus.className = "status denied";
-  logEvent(`Notification status initialized: ${Notification.permission}`);
-} else {
-  notifyStatus.textContent = "UNSUPPORTED";
-  notifyStatus.className = "status unsupported";
-  logEvent("Push Notifications API is completely unsupported.", true);
+  }, 50);
 }
 
-btnNotify.addEventListener('click', () => {
-  if (!('Notification' in window)) return;
-  logEvent("Requesting user notification permissions...");
-  Notification.requestPermission().then(permission => {
-    notifyStatus.textContent = permission.toUpperCase();
-    if (permission === 'granted') {
-      notifyStatus.className = "status granted";
-      new Notification("System Alert", { body: "PWA Permissions validated successfully!" });
-      logEvent("Notification permission GRANTED.");
-    } else {
-      notifyStatus.className = "status denied";
-      logEvent(`Notification permission resolved as: ${permission}`, true);
-    }
-  });
-});
+// 6. Simple Green Volume Meter Visualizer
+function drawVisualizer() {
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
 
+  function draw() {
+    requestAnimationFrame(draw);
+    analyser.getByteFrequencyData(dataArray);
 
-// 8. Aggressive Permissions
-const btnPersist = document.getElementById('btn-persist');
-const persistStatus = document.getElementById('persist-status');
-const btnWake = document.getElementById('btn-wake');
-const wakeStatus = document.getElementById('wake-status');
-let wakeLock = null;
+    canvasCtx.fillStyle = '#000';
+    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-// Storage Persistence Check
-if (navigator.storage && navigator.storage.persisted) {
-  navigator.storage.persisted().then(isPersisted => {
-    persistStatus.textContent = isPersisted ? "PERSISTED (Safeguarded)" : "Not Persisted (Disposable)";
-    persistStatus.className = isPersisted ? "status granted" : "status unsupported";
-    logEvent(`Persistent storage initial state: ${isPersisted}`);
-  });
-}
+    let barWidth = (canvas.width / bufferLength) * 2.5;
+    let barHeight;
+    let x = 0;
 
-btnPersist.addEventListener('click', () => {
-  if (navigator.storage && navigator.storage.persist) {
-    logEvent("Requesting browser to make PWA storage completely persistent...");
-    navigator.storage.persist().then(granted => {
-      persistStatus.textContent = granted ? "PERSISTED (Safeguarded)" : "Denied by Browser";
-      persistStatus.className = granted ? "status granted" : "status denied";
-      logEvent(`Persistent storage request result: ${granted}`);
-    }).catch(err => {
-      logEvent(`Persistent storage request crashed: ${err.message}`, true);
-    });
-  } else {
-    logEvent("Storage Persistence API is missing.", true);
-  }
-});
-
-// Screen Wake Lock Request
-btnWake.addEventListener('click', async () => {
-  if ('wakeLock' in navigator) {
-    if (wakeLock !== null) {
-      wakeLock.release().then(() => {
-        wakeLock = null;
-        wakeStatus.textContent = "Inactive";
-        wakeStatus.className = "status unsupported";
-        logEvent("Screen Wake Lock manually released.");
-      });
-      return;
-    }
-    logEvent("Requesting Wake Lock to keep screen on...");
-    try {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeStatus.textContent = "ACTIVE (Screen forced ON)";
-      wakeStatus.className = "status granted";
-      logEvent("Wake Lock acquired successfully. Screen will not sleep.");
+    for (let i = 0; i < bufferLength; i++) {
+      barHeight = dataArray[i] / 3;
       
-      wakeLock.addEventListener('release', () => {
-        logEvent("Wake Lock system released.");
-      });
-    } catch (err) {
-      wakeStatus.textContent = "FAILED";
-      wakeStatus.className = "status denied";
-      logEvent(`Wake lock request failed: ${err.message}`, true);
+      // Paint red if Tan is muted/speaking, green otherwise
+      if (isRepeating) {
+        canvasCtx.fillStyle = 'rgb(255, 85, 85)';
+      } else {
+        canvasCtx.fillStyle = `rgb(85, 255, ${barHeight + 100})`;
+      }
+      
+      canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+      x += barWidth + 1;
     }
-  } else {
-    wakeStatus.textContent = "UNSUPPORTED";
-    wakeStatus.className = "status unsupported";
-    logEvent("Screen Wake Lock API is completely unsupported.", true);
   }
-});
-
-
-// Copy log text block to clipboard
-const btnCopyLog = document.getElementById('btn-copy-log');
-btnCopyLog.addEventListener('click', () => {
-  const fullLogText = logs.join('\n');
-  navigator.clipboard.writeText(fullLogText)
-    .then(() => {
-      const originalText = btnCopyLog.textContent;
-      btnCopyLog.textContent = "Copied!";
-      btnCopyLog.style.background = "#55ff55";
-      btnCopyLog.style.color = "#000";
-      logEvent("All system logs successfully copied to clipboard.");
-      setTimeout(() => {
-        btnCopyLog.textContent = originalText;
-        btnCopyLog.style.background = "#ff5555";
-        btnCopyLog.style.color = "#fff";
-      }, 1500);
-    })
-    .catch(err => {
-      alert("Failed to copy. Manually copy the log box below.");
-      logEvent(`Failed to write clipboard: ${err.message}`, true);
-    });
-});
+  draw();
+}
