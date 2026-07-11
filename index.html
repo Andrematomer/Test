@@ -6,7 +6,6 @@
   <title>Offline Player</title>
   
   <link rel="manifest" href="./manifest.json">
-  <!-- Fixed: iOS requires PNG format for the home screen icon -->
   <link rel="apple-touch-icon" href="./icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -29,21 +28,21 @@
     #video-avif {
       width: 100%;
       height: 100%;
-      object-fit: cover; /* Vertical fullscreen video */
+      object-fit: cover;
       display: block;
     }
   </style>
 </head>
 <body>
 
-  <!-- Video starts playing immediately on load, loop is managed natively by the file -->
+  <!-- Video autoplays instantly on load, loops independently -->
   <img id="video-avif" src="./video.avif" alt="PWA Video">
 
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('SW Registered'))
+          .then(reg => console.log('SW V3 Registered'))
           .catch(err => console.log('SW Failed', err));
       });
     }
@@ -55,7 +54,7 @@
     let isAudioPlaying = false;
     let sourceNode = null;
 
-    // Background fetch the audio instantly as a binary buffer
+    // Pre-fetch audio as an ArrayBuffer
     fetch(audioUrl)
       .then(res => {
         if (!res.ok) throw new Error();
@@ -66,21 +65,26 @@
       })
       .catch(err => console.error('Audio load deferred'));
 
-    // Global event listener: any touch or click anywhere triggers the sound
+    // Global listener: single tap anywhere on screen plays the sound
     const startAudio = async () => {
       if (isAudioPlaying) return;
 
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      audioContext = new AudioContextClass();
-
       try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioContextClass();
+
+        // Fix for S21 / Android Chrome: Force the context to resume out of suspended state
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+
         if (!rawAudioData) {
           const res = await fetch(audioUrl);
           rawAudioData = await res.arrayBuffer();
         }
 
-        // Decode audio in-memory (no range requests needed)
-        audioBuffer = await audioContext.decodeAudioData(rawAudioData.slice(0));
+        // Decode audio in-memory
+        audioBuffer = await audioContext.decodeAudioData(rawAudioData);
 
         sourceNode = audioContext.createBufferSource();
         sourceNode.buffer = audioBuffer;
@@ -92,18 +96,16 @@
         sourceNode.start(0);
         isAudioPlaying = true;
 
-        // Remove the listeners so they don't trigger again
+        // Cleanup the listener so it only runs once
         document.removeEventListener('click', startAudio);
-        document.removeEventListener('touchstart', startAudio);
 
       } catch (err) {
-        console.error('Audio trigger deferred:', err);
+        console.error('Audio play failed:', err);
       }
     };
 
-    // Listen for any user interaction on the screen
+    // Use pure 'click' event (highly reliable for mobile autoplay policies)
     document.addEventListener('click', startAudio);
-    document.addEventListener('touchstart', startAudio);
   </script>
 </body>
 </html>
