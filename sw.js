@@ -1,28 +1,32 @@
-const CACHE_NAME = 'offline-video-v1';
-const ASSETS = [
-  'index.html',
-  'manifest.json',
-  'video.mp4',
-  'icon.png'
+const CACHE_NAME = 'media-pwa-cache-v1';
+const ASSETS_TO_CACHE = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icon.jpeg',
+  './video.webp',
+  './audio.mp3'
 ];
 
-// Install event: Cache all essential files
-self.addEventListener('install', (event) => {
+// Cache all assets during PWA installation
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
+    caches.open(CACHE_NAME).then(cache => {
+      console.log('Caching offline assets');
+      return cache.addAll(ASSETS_TO_CACHE);
     })
   );
   self.skipWaiting();
 });
 
-// Activate event: Clean up old caches
-self.addEventListener('activate', (event) => {
+// Clear old caches if the name updates
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((keys) => {
+    caches.keys().then(keys => {
       return Promise.all(
-        keys.map((key) => {
+        keys.map(key => {
           if (key !== CACHE_NAME) {
+            console.log('Removing old cache:', key);
             return caches.delete(key);
           }
         })
@@ -32,11 +36,15 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event: Serve assets from cache even when offline
-self.addEventListener('fetch', (event) => {
+// Handle offline asset delivery
+self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request);
+    // ignoreSearch: true lets "?t=..." query strings match cached static WebPs
+    caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request);
     })
   );
 });

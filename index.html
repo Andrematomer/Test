@@ -3,52 +3,182 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Offline Loop</title>
-  <link rel="manifest" href="manifest.json">
+  <title>Offline Media Player</title>
+  
+  <!-- Relative paths for GitHub Pages -->
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icon.jpeg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <style>
-    * { box-sizing: border-box; }
-    body, html {
+    body {
       margin: 0;
       padding: 0;
-      width: 100%;
-      height: 100%;
+      background-color: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
       overflow: hidden;
-      background-color: #000000;
-      overscroll-behavior-y: contain; /* Prevents pull-to-refresh gestures */
+      user-select: none;
     }
-    video {
+
+    #visual-container {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none; /* Hidden until tap to ensure perfect sync */
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      z-index: 10;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #overlay h1 {
+      font-size: 2rem;
+      margin: 0 0 10px 0;
+    }
+
+    #overlay p {
+      font-size: 1rem;
+      color: #aaa;
+      margin: 0;
+    }
+
+    #status {
+      margin-top: 25px;
+      font-size: 0.9rem;
+      color: #00ffcc;
     }
   </style>
 </head>
 <body>
 
-  <video id="loopPlayer" src="video.mp4" autoplay loop muted playsinline></video>
+  <div id="visual-container">
+    <div id="overlay">
+      <h1>Tap to Play</h1>
+      <p>Unlocks sound and visuals offline</p>
+      <div id="status">Loading assets...</div>
+    </div>
+    <!-- Animated WebP -->
+    <img id="video-webp" alt="PWA Video">
+  </div>
 
   <script>
-    // Register Service Worker for offline functionality
+    // Register Service Worker with relative path
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('Service Worker registered'))
-          .catch(err => console.error('Registration failed', err));
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker Registered!'))
+          .catch(err => console.log('Service Worker Registration Failed:', err));
       });
     }
 
-    // Request persistent storage so the video isn't deleted by the OS
-    if (navigator.storage && navigator.storage.persist) {
-      navigator.storage.persist().then(granted => {
-        if (granted) console.log('Storage persistence granted');
-      });
-    }
+    const audioUrl = './audio.mp3';
+    const webpUrl = './video.webp';
 
-    // Attempt to unmute video on first user interaction if blocked by browser policy
-    document.body.addEventListener('click', () => {
-      const video = document.getElementById('loopPlayer');
-      video.muted = false;
-    }, { once: true });
+    let audioContext = null;
+    let audioBuffer = null;
+    let rawAudioData = null;
+    let isPlaying = false;
+    let sourceNode = null;
+
+    const overlay = document.getElementById('overlay');
+    const statusText = document.getElementById('status');
+    const webpImg = document.getElementById('video-webp');
+
+    // Pre-fetch the audio as a flat data array (bypasses iOS 206 Range-Request requirement)
+    fetch(audioUrl)
+      .then(response => {
+        if (!response.ok) throw new Error('Network error');
+        return response.arrayBuffer();
+      })
+      .then(arrayBuffer => {
+        rawAudioData = arrayBuffer;
+        statusText.innerText = 'Ready to play offline!';
+      })
+      .catch(err => {
+        console.error('Initial audio load failed:', err);
+        statusText.innerText = 'Click to try loading...';
+      });
+
+    // Handle user tap to decode data and play
+    overlay.addEventListener('click', async () => {
+      if (isPlaying) return;
+
+      statusText.innerText = 'Decoding audio...';
+
+      // Initialize audio context inside user click handler (iOS requirement)
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioContext = new AudioContextClass();
+
+      try {
+        // Fallback fetch if preload wasn't complete
+        if (!rawAudioData) {
+          const res = await fetch(audioUrl);
+          rawAudioData = await res.arrayBuffer();
+        }
+
+        // Decode binary audio data in-memory
+        audioBuffer = await audioContext.decodeAudioData(rawAudioData.slice(0));
+
+        // Create buffer source
+        sourceNode = audioContext.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.connect(audioContext.destination);
+
+        // Start playback
+        sourceNode.start(0);
+        isPlaying = true;
+
+        // Sync: set WebP source with timestamp to force frame 0 restart
+        webpImg.src = webpUrl + "?t=" + Date.now();
+        webpImg.style.display = 'block';
+
+        // Hide start screen
+        overlay.style.display = 'none';
+
+        // Reset display once audio completes
+        sourceNode.onended = () => {
+          isPlaying = false;
+          overlay.style.display = 'flex';
+          statusText.innerText = 'Finished. Tap to play again!';
+          webpImg.style.display = 'none';
+          webpImg.removeAttribute('src');
+        };
+
+      } catch (err) {
+        console.error('Audio playback error:', err);
+        statusText.innerText = 'Playback failed. Tap to retry.';
+      }
+    });
   </script>
 </body>
 </html>
