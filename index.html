@@ -6,7 +6,6 @@
   <title>Tan</title>
   <link rel="manifest" href="manifest.json">
   
-  <!-- Map your custom icon.svg to clear favicon warnings and show up on Home Screen -->
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
 
@@ -18,13 +17,9 @@
       height: 100%;
       overflow: hidden;
       background-color: #000000; /* Solid black background */
-      font-family: monospace;
+      touch-action: none; 
       user-select: none;
       -webkit-user-select: none;
-      touch-action: none; 
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
     canvas {
       display: block;
@@ -32,19 +27,9 @@
       height: 100%;
       touch-action: none;
     }
-    #indicator {
-      color: #55ff55;
-      font-size: 24px;
-      pointer-events: none;
-      z-index: 50;
-      text-align: center;
-    }
   </style>
 </head>
 <body>
-
-  <!-- Tap to activate overlay (vanishes completely on load) -->
-  <div id="indicator">TAP ANYWHERE TO ACTIVATE SENSORS</div>
 
   <!-- Import WebGL Core & Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
