@@ -3,109 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Offline Player</title>
+  <title>Tan</title>
+  <link rel="manifest" href="manifest.json">
   
-  <link rel="manifest" href="./manifest.json">
-  <link rel="apple-touch-icon" href="./icon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Map your custom icon.svg to clear favicon warnings and show up on Home Screen -->
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
 
   <style>
-    body, html {
+    html, body {
       margin: 0;
       padding: 0;
-      background-color: #000;
       width: 100%;
       height: 100%;
       overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      background-color: #000000; /* Solid black background */
+      touch-action: none; 
       user-select: none;
-      cursor: pointer;
+      -webkit-user-select: none;
     }
-
-    #video-avif {
+    canvas {
+      display: block;
       width: 100%;
       height: 100%;
-      object-fit: cover;
-      display: block;
+      touch-action: none;
     }
   </style>
 </head>
 <body>
 
-  <!-- Video autoplays instantly on load, loops independently -->
-  <img id="video-avif" src="./video.avif" alt="PWA Video">
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('SW V3 Registered'))
-          .catch(err => console.log('SW Failed', err));
-      });
-    }
-
-    const audioUrl = './audio.mp3';
-    let audioContext = null;
-    let audioBuffer = null;
-    let rawAudioData = null;
-    let isAudioPlaying = false;
-    let sourceNode = null;
-
-    // Pre-fetch audio as an ArrayBuffer
-    fetch(audioUrl)
-      .then(res => {
-        if (!res.ok) throw new Error();
-        return res.arrayBuffer();
-      })
-      .then(arrayBuffer => {
-        rawAudioData = arrayBuffer;
-      })
-      .catch(err => console.error('Audio load deferred'));
-
-    // Global listener: single tap anywhere on screen plays the sound
-    const startAudio = async () => {
-      if (isAudioPlaying) return;
-
-      try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        audioContext = new AudioContextClass();
-
-        // Fix for S21 / Android Chrome: Force the context to resume out of suspended state
-        if (audioContext.state === 'suspended') {
-          await audioContext.resume();
-        }
-
-        if (!rawAudioData) {
-          const res = await fetch(audioUrl);
-          rawAudioData = await res.arrayBuffer();
-        }
-
-        // Decode audio in-memory
-        audioBuffer = await audioContext.decodeAudioData(rawAudioData);
-
-        sourceNode = audioContext.createBufferSource();
-        sourceNode.buffer = audioBuffer;
-        
-        // Loop the audio indefinitely
-        sourceNode.loop = true;
-        
-        sourceNode.connect(audioContext.destination);
-        sourceNode.start(0);
-        isAudioPlaying = true;
-
-        // Cleanup the listener so it only runs once
-        document.removeEventListener('click', startAudio);
-
-      } catch (err) {
-        console.error('Audio play failed:', err);
-      }
-    };
-
-    // Use pure 'click' event (highly reliable for mobile autoplay policies)
-    document.addEventListener('click', startAudio);
-  </script>
+  <!-- Import WebGL Core & Loaders from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  
+  <!-- Main Script Module -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
