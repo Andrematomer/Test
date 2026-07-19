@@ -139,6 +139,10 @@ const ab = new THREE.Vector3();
 const loader = new THREE.GLTFLoader();
 loader.load('./Tan.glb', (gltf) => {
   console.log("Tan GLB loaded successfully.");
+  const indicator = document.getElementById('indicator');
+  if (indicator) {
+    indicator.remove(); 
+  }
   gltf.scene.traverse((child) => {
     if (child.isMesh && !headMesh) {
       headMeshSetup(child);
@@ -199,7 +203,7 @@ function headMeshSetup(mesh) {
         pos: originalPos.clone(),
         prevPos: originalPos.clone(),
         restPos: originalPos.clone(),
-        normal: new THREE.Vector3(), 
+        normal: new THREE.Vector3(), // Pre-allocated vector for custom smooth normal calculations [3]
         isAnchor: false,             
         isDragged: false,        
         vertexIndices: [i] 
@@ -250,7 +254,6 @@ function headMeshSetup(mesh) {
     });
   }
 
-  isInitialized = true;
   animate();
 }
 
@@ -544,8 +547,9 @@ window.addEventListener('pointermove', (e) => {
 });
 
 function releaseDrag(e) {
-  // Only release the drag if the finger being lifted is our locked primary finger
-  if (isDraggingActive && e.pointerId === activePointerId) {
+  // FIXED VOID-TAP LOCK TRAP: Always release the pointer lock if the finger being lifted is our locked primary finger,
+  // regardless of whether we are actively dragging a vertex or just tapped empty space! [1.2.9]
+  if (e.pointerId === activePointerId) {
     try {
       e.target.releasePointerCapture(e.pointerId);
     } catch (err) {}
@@ -566,4 +570,4 @@ window.addEventListener('resize', () => {
   // Dynamically adjust camera Z-distance to prevent any left/right cropping on tall phone screens
   updateCameraAspect();
   renderer.setSize(window.innerWidth, window.innerHeight);
-});
+});c

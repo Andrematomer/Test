@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tan-3d-gyro-v1'; // BUMPED CACHE VERSION FOR CLEAN RESET
+const CACHE_NAME = 'tan-3d-gyro-v11'; // BUMPED CACHE VERSION FOR CLEAN RESET
 const ASSETS = [
   './',
   './index.html',
