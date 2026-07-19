@@ -1,12 +1,12 @@
 {
   "name": "Tan Kenyel",
   "short_name": "Tan",
-  "start_url": "/test/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#121212",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "portrait",
-  "scope": "/test/",
+  "scope": "./",
   "icons": [
     {
       "src": "icon.svg",
